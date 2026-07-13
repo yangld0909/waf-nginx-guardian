@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guardian WAF 管理面板</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0f1923;color:#e0e0e0;font-size:14px}
+.sidebar{position:fixed;left:0;top:0;width:220px;height:100vh;background:#1a2a3a;border-right:1px solid #2a3a4a;padding:20px 0;overflow-y:auto;z-index:100}
+.sidebar h1{font-size:16px;color:#4fc3f7;padding:0 20px 20px;border-bottom:1px solid #2a3a4a;margin-bottom:10px}
+.sidebar .nav-item{display:block;padding:10px 20px;color:#b0b0b0;text-decoration:none;cursor:pointer;transition:all .2s;border-left:3px solid transparent}
+.sidebar .nav-item:hover{background:#1e3042;color:#fff}
+.sidebar .nav-item.active{background:#1e3042;color:#4fc3f7;border-left-color:#4fc3f7}
+.sidebar .nav-item .badge{float:right;background:#e74c3c;color:#fff;font-size:11px;padding:1px 7px;border-radius:10px}
+.main{margin-left:220px;padding:20px 30px}
+.page{display:none}.page.active{display:block}
+h2{font-size:20px;margin-bottom:20px;color:#4fc3f7}
+h3{font-size:16px;margin:15px 0 10px;color:#ccc}
+.card{background:#1a2a3a;border:1px solid #2a3a4a;border-radius:8px;padding:20px;margin-bottom:20px}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:15px;margin-bottom:20px}
+.stat-card{background:#1a2a3a;border:1px solid #2a3a4a;border-radius:8px;padding:15px;text-align:center}
+.stat-card .num{font-size:28px;font-weight:700;color:#4fc3f7;display:block}
+.stat-card .label{font-size:12px;color:#888;margin-top:5px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #2a3a4a;font-size:13px}
+th{color:#888;font-weight:600;text-transform:uppercase;font-size:11px}
+tr:hover td{background:#1e3042}
+select,input[type=text],input[type=number],textarea{background:#0f1923;border:1px solid #2a3a4a;color:#e0e0e0;padding:8px 12px;border-radius:4px;font-size:13px;width:100%}
+select:focus,input:focus,textarea:focus{outline:none;border-color:#4fc3f7}
+textarea{font-family:"Cascadia Code","Fira Code",monospace;font-size:12px}
+.btn{display:inline-block;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;font-size:13px;transition:all .2s;text-decoration:none}
+.btn-primary{background:#1976d2;color:#fff}.btn-primary:hover{background:#1565c0}
+.btn-success{background:#2e7d32;color:#fff}.btn-success:hover{background:#1b5e20}
+.btn-danger{background:#c62828;color:#fff}.btn-danger:hover{background:#b71c1c}
+.btn-warning{background:#e65100;color:#fff}
+.btn-ghost{background:transparent;border:1px solid #2a3a4a;color:#b0b0b0}.btn-ghost:hover{border-color:#4fc3f7;color:#4fc3f7}
+.btn-sm{padding:4px 10px;font-size:11px}
+.form-group{margin-bottom:12px}
+.form-group label{display:block;margin-bottom:4px;color:#aaa;font-size:12px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.tag{display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;margin:2px}
+.tag-green{background:#1b5e20;color:#a5d6a7}
+.tag-red{background:#b71c1c;color:#ef9a9a}
+.tag-blue{background:#0d47a1;color:#90caf9}
+.tag-orange{background:#e65100;color:#ffcc80}
+.tag-gray{background:#37474f;color:#b0bec5}
+.flex{display:flex;gap:10px;align-items:center}
+.flex-wrap{flex-wrap:wrap}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.mb-10{margin-bottom:10px}
+.mt-10{margin-top:10px}
+.ml-10{margin-left:10px}
+.mr-10{margin-right:10px}
+.code{font-family:monospace;background:#0f1923;padding:2px 6px;border-radius:3px;font-size:12px;word-break:break-all}
+.rule-row{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #2a3a4a}
+.rule-row:last-child{border-bottom:none}
+.rule-row .enabled{width:36px;height:20px}
+.toast{position:fixed;bottom:30px;right:30px;padding:12px 24px;border-radius:6px;color:#fff;z-index:9999;animation:slideIn .3s ease}
+.toast-success{background:#2e7d32}
+.toast-error{background:#c62828}
+@keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.loading{text-align:center;padding:40px;color:#888}
+.loading:after{content:'';display:inline-block;width:20px;height:20px;border:2px solid #2a3a4a;border-top-color:#4fc3f7;border-radius:50%;animation:spin .6s linear infinite;margin-left:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:1000}
+.modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a2a3a;border:1px solid #2a3a4a;border-radius:8px;padding:24px;min-width:500px;max-width:700px;max-height:85vh;overflow-y:auto;z-index:1001}
+.modal h3{margin-bottom:15px}
+.modal .btn{margin-top:10px}
+.empty-state{text-align:center;padding:40px;color:#666}
+.tabs{display:flex;border-bottom:1px solid #2a3a4a;margin-bottom:15px;gap:0}
+.tab{padding:8px 20px;cursor:pointer;color:#888;border-bottom:2px solid transparent;transition:all .2s}
+.tab:hover{color:#e0e0e0}
+.tab.active{color:#4fc3f7;border-bottom-color:#4fc3f7}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.log-line{font-family:monospace;font-size:11px;padding:4px 8px;border-bottom:1px solid #1a2a3a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-line:nth-child(odd){background:#0d1a26}
+.log-line:hover{background:#1e3042;white-space:normal;word-break:break-all}
+.site-card{background:#1a2a3a;border:1px solid #2a3a4a;border-radius:8px;padding:16px;margin-bottom:12px}
+.site-card:hover{border-color:#4fc3f7}
+.site-card .shead{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.site-card .sname{font-size:15px;font-weight:600;color:#e0e0e0}
+.site-card .spath{font-size:11px;color:#666;margin-top:2px}
+.site-card .sdomains{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.site-card .sdomain{font-size:11px;color:#90caf9;background:#0d47a1;padding:2px 8px;border-radius:3px}
+.site-card .sdomain:hover{background:#1565c0}
+.site-card .sactions{display:flex;gap:6px;flex-shrink:0}
+.site-card .smeta{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:768px){.sidebar{width:60px}.sidebar h1,.sidebar .nav-item span{display:none}.main{margin-left:60px}.form-row,.form-row-3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h1>🛡 Guardian</h1>
+  <a class="nav-item active" data-page="dashboard"><span>📊 仪表盘</span></a>
+  <a class="nav-item" data-page="config"><span>⚙️ 全局配置</span></a>
+  <a class="nav-item" data-page="sites"><span>🌐 站点管理</span><span class="badge" id="site-badge">0</span></a>
+  <a class="nav-item" data-page="rules"><span>📝 规则管理</span></a>
+  <a class="nav-item" data-page="blocked"><span>🚫 IP 封锁</span><span class="badge" id="blocked-badge">0</span></a>
+  <a class="nav-item" data-page="logs"><span>📋 日志查看</span></a>
+  <a class="nav-item" data-page="tester"><span>🧪 规则测试</span></a>
+</div>
+
+<div class="main" id="app">
+
+<!-- ========== Dashboard ========== -->
+<div class="page active" id="page-dashboard">
+  <h2>📊 仪表盘</h2>
+  <div class="stat-grid" id="stats"></div>
+  <div class="card">
+    <div class="card-header"><h3>站点拦截排行</h3></div>
+    <div id="site-hits-table"><div class="empty-state">加载中...</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3>当前封锁 IP (前50)</h3></div>
+    <div id="blocked-preview"><div class="empty-state">加载中...</div></div>
+  </div>
+</div>
+
+<!-- ========== Global Config ========== -->
+<div class="page" id="page-config">
+  <h2>⚙️ 全局配置</h2>
+  <div class="card"><div id="config-editor"><div class="loading">加载中</div></div></div>
+</div>
+
+<!-- ========== Sites ========== -->
+<div class="page" id="page-sites">
+  <h2>🌐 站点管理</h2>
+  <div class="flex-between mb-10">
+    <span style="color:#888">共 <strong id="site-count">0</strong> 个站点</span>
+    <button class="btn btn-success btn-sm" onclick="showCreateSite()">+ 新建站点</button>
+  </div>
+  <div id="sites-container"></div>
+</div>
+
+<!-- ========== Rules ========== -->
+<div class="page" id="page-rules">
+  <h2>📝 规则管理</h2>
+  <div class="flex-between mb-10">
+    <div class="flex">
+      <select id="rule-type-select" style="width:200px"></select>
+      <button class="btn btn-primary btn-sm" onclick="loadRules()">加载</button>
+    </div>
+    <button class="btn btn-success btn-sm" onclick="addRuleRow()">+ 添加规则</button>
+  </div>
+  <div class="card">
+    <div class="flex-between mb-10">
+      <span style="color:#888"><span id="rule-count">0</span> 条规则</span>
+      <button class="btn btn-primary btn-sm" onclick="saveRules()">保存规则</button>
+    </div>
+    <div id="rules-list"></div>
+  </div>
+</div>
+
+<!-- ========== Blocked IPs ========== -->
+<div class="page" id="page-blocked">
+  <h2>🚫 IP 封锁管理</h2>
+  <div class="flex-between mb-10">
+    <span style="color:#888">已封锁: <strong id="blocked-count">0</strong></span>
+    <button class="btn btn-danger btn-sm" onclick="clearBlocked()">清空所有封锁</button>
+  </div>
+  <div class="card" id="blocked-list"><div class="loading">加载中</div></div>
+</div>
+
+<!-- ========== Logs ========== -->
+<div class="page" id="page-logs">
+  <h2>📋 日志查看</h2>
+  <div class="flex mb-10 flex-wrap">
+    <select id="log-server" style="width:200px"><option value="">-- 所有站点 --</option></select>
+    <input type="text" id="log-date" placeholder="日期 (YYYY-MM-DD)" style="width:160px" value="">
+    <button class="btn btn-primary btn-sm" onclick="loadLogs()">查询</button>
+    <button class="btn btn-ghost btn-sm" onclick="refreshLogs()">刷新</button>
+    <button class="btn btn-ghost btn-sm" onclick="autoFillLatestLog()">今天</button>
+  </div>
+  <div class="card"><div id="logs-content" style="max-height:600px;overflow-y:auto"><div class="empty-state">选择站点和日期后点击查询</div></div></div>
+</div>
+
+<!-- ========== Rule Tester ========== -->
+<div class="page" id="page-tester">
+  <h2>🧪 规则测试</h2>
+  <div class="card">
+    <div class="form-group"><label>正则表达式</label><input type="text" id="test-pattern" placeholder="例如: select.+(from|limit)"></div>
+    <div class="form-group"><label>测试载荷</label><textarea id="test-payload" rows="4" placeholder="输入要测试的请求参数或字符串"></textarea></div>
+    <button class="btn btn-primary" onclick="testRule()">测试匹配</button>
+    <div id="test-result" class="mt-10"></div>
+  </div>
+</div>
+
+</div>
+
+<!-- ========== Modal ========== -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal()"></div>
+<div class="modal" id="modal" style="display:none">
+  <h3 id="modal-title"></h3>
+  <div id="modal-body"></div>
+  <div style="text-align:right;margin-top:15px">
+    <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+    <button class="btn btn-primary ml-10" id="modal-confirm" onclick="closeModal()">确认</button>
+  </div>
+</div>
+
+<script>
+const API = '/waf/admin';
+
+// ========== Utilities ==========
+let currentEditSiteName = ''; // tracks which site is being edited in the modal
+function toast(msg, type = 'success') {
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+function $(id) { return document.getElementById(id); }
+function escapeHtml(s) { if (typeof s !== 'string') return ''; return s.replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function boolOpt(v) { return `<option value="true" ${v ? 'selected' : ''}>开启</option><option value="false" ${v ? '' : 'selected'}>关闭</option>`; }
+
+function openModal(title, bodyHtml, confirmFn, confirmText) {
+  $('modal-title').textContent = title;
+  $('modal-body').innerHTML = bodyHtml;
+  $('modal').style.display = 'block';
+  $('modal-overlay').style.display = 'block';
+  $('modal-confirm').textContent = confirmText || '确认';
+  $('modal-confirm').onclick = () => { closeModal(); if (confirmFn) confirmFn(); };
+}
+function closeModal() {
+  $('modal').style.display = 'none';
+  $('modal-overlay').style.display = 'none';
+}
+
+// Navigation
+document.querySelectorAll('.nav-item').forEach(el => {
+  el.onclick = () => {
+    document.querySelectorAll('.nav-item, .page').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+    const page = $(`page-${el.dataset.page}`);
+    if (page) page.classList.add('active');
+    const fn = { dashboard: loadDashboard, config: loadConfig, sites: loadSites, rules: populateRuleTypes, blocked: loadBlocked }[el.dataset.page];
+    if (fn) fn();
+  };
+});
+
+// ==================== DASHBOARD ====================
+async function loadDashboard() {
+  try {
+    const r = await fetch(`${API}/dashboard`);
+    const d = await r.json();
+    if (!d.success) { console.log("Config load fail:", d); return; }
+    const s = d.stats || {};
+
+    $('stats').innerHTML = `
+      <div class="stat-card"><span class="num">${s.total || 0}</span><div class="label">总拦截次数</div></div>
+      <div class="stat-card"><span class="num">${d.blocked_count || 0}</span><div class="label">当前封锁 IP</div></div>
+      <div class="stat-card"><span class="num">${d.total_sites || 0}</span><div class="label">监控站点</div></div>
+      <div class="stat-card"><span class="num">${d.total_domains || 0}</span><div class="label">绑定域名</div></div>
+      <div class="stat-card"><span class="num">${Object.keys(s.rules || {}).length}</span><div class="label">触发规则类型</div></div>
+    `;
+    if (s.total_domains) $('stats').innerHTML += `<div class="stat-card"><span class="num">${s.total_domains}</span><div class="label">绑定域名</div></div>`;
+
+    // Site hit ranking
+    const hits = d.site_hits || [];
+    if (hits.length) {
+      const top = hits.slice(0, 20);
+      $('site-hits-table').innerHTML = `<table><tr><th>#</th><th>站点</th><th>拦截次数</th><th>占比</th></tr>${
+        top.map((h, i) => `<tr><td>${i+1}</td><td>${escapeHtml(h.name)}</td><td>${h.total}</td><td>${s.total ? (h.total/s.total*100).toFixed(1)+'%' : '-'}</td></tr>`).join('')
+      }</table>`;
+    } else {
+      $('site-hits-table').innerHTML = '<div class="empty-state">暂无拦截记录</div>';
+    }
+
+    // Blocked IPs preview
+    if (d.blocked_ips && d.blocked_ips.length) {
+      $('blocked-preview').innerHTML = `<table><tr><th>IP</th><th>违规次数</th></tr>${
+        d.blocked_ips.slice(0, 50).map(b => `<tr><td class="code">${b.ip}</td><td>${b.count}</td></tr>`).join('')
+      }</table>`;
+    } else {
+      $('blocked-preview').innerHTML = '<div class="empty-state">暂无封锁 IP</div>';
+    }
+  } catch(e) { toast('加载仪表盘失败: ' + e.message, 'error'); }
+}
+
+// ==================== GLOBAL CONFIG ====================
+let currentConfig = null;
+async function loadConfig() {
+  try {
+    const r = await fetch(`${API}/config`);
+    const d = await r.json();
+    if (!d.success) { console.log("Config load fail:", d); return; }
+    currentConfig = d.config;
+    $('config-editor').innerHTML = `
+      <div class="form-row">
+        <div class="form-group"><label>WAF 开关</label><select id="cfg-open">${boolOpt(d.config.open)}</select></div>
+        <div class="form-group"><label>错误次数触发封锁 (retry)</label><input type="number" id="cfg-retry" value="${d.config.retry || 3}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>封锁基数(秒) (retry_time)</label><input type="number" id="cfg-retry-time" value="${d.config.retry_time || 600}"></div>
+        <div class="form-group"><label>统计周期(秒) (retry_cycle)</label><input type="number" id="cfg-retry-cycle" value="${d.config.retry_cycle || 60}"></div>
+      </div>
+      <h3>CC 防护</h3>
+      <div class="form-row">
+        <div class="form-group"><label>CC 开关</label><select id="cfg-cc-open">${boolOpt(d.config.cc && d.config.cc.open)}</select></div>
+        <div class="form-group"><label>周期(秒)</label><input type="number" id="cfg-cc-cycle" value="${d.config.cc ? d.config.cc.cycle : 60}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>周期内限制次数</label><input type="number" id="cfg-cc-limit" value="${d.config.cc ? d.config.cc.limit : 120}"></div>
+        <div class="form-group"><label>封锁时间(秒)</label><input type="number" id="cfg-cc-endtime" value="${d.config.cc ? d.config.cc.endtime : 3600}"></div>
+      </div>
+      <h3>检测开关</h3>
+      <div class="form-row-3">
+        <div class="form-group"><label>URI 过滤 (404)</label><select id="cfg-uri">${boolOpt((d.config.uri || d.config.get) && (d.config.uri || d.config.get).open)}</select></div>
+        <div class="form-group"><label>GET 参数检测 (404)</label><select id="cfg-args">${boolOpt((d.config.args || d.config.get) && (d.config.args || d.config.get).open)}</select></div>
+        <div class="form-group"><label>POST 参数检测</label><select id="cfg-post">${boolOpt(d.config.post && d.config.post.open)}</select></div>
+      </div>
+      <div class="form-row-3">
+        <div class="form-group"><label>Cookie 检测</label><select id="cfg-cookie">${boolOpt(d.config.cookie && d.config.cookie.open)}</select></div>
+        <div class="form-group"><label>UA 过滤</label><select id="cfg-ua">${boolOpt(d.config['user-agent'] && d.config['user-agent'].open)}</select></div>
+        <div class="form-group"><label>扫描工具检测</label><select id="cfg-scan">${boolOpt(d.config.scan && d.config.scan.open)}</select></div>
+      </div>
+      <h3>全局安全限制 (站点会叠加)</h3>
+      <div class="form-group"><label>禁止访问的URL路径 (每行一个)</label><textarea id="cfg-disable-path" rows="1">${(Array.isArray(d.config.disable_path) ? d.config.disable_path : []).join('\n')}</textarea></div>
+      <div class="form-group"><label>禁止访问的扩展名 (逗号分隔)</label><input type="text" id="cfg-disable-ext" value="${(Array.isArray(d.config.disable_ext) ? d.config.disable_ext : []).join(',')}"></div>
+      <div class="form-group"><label>禁止上传的文件类型 (逗号分隔)</label><input type="text" id="cfg-disable-upload" value="${(Array.isArray(d.config.disable_upload_ext) ? d.config.disable_upload_ext : []).join(',')}"></div>
+      <div class="form-group"><label>禁止执行PHP的URL路径 (每行一个)</label><textarea id="cfg-disable-php" rows="1">${(Array.isArray(d.config.disable_php_path) ? d.config.disable_php_path : []).join('\n')}</textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label>详细违规日志</label><select id="cfg-detail-log">${boolOpt(d.config.detail_log)}</select><span style="color:#888;font-size:11px">开启后记录请求头、请求体等详细信息</span></div>
+        <div class="form-group"><label>日志路径</label><input type="text" id="cfg-log-path" value="${d.config.logs_path || ''}"></div>
+      </div>
+      <button class="btn btn-primary mt-10" onclick="saveConfig()">保存配置</button>
+    `;
+  } catch(e) { toast('加载配置失败: ' + e.message, 'error'); }
+}
+
+async function saveConfig() {
+  const updates = {
+    open: $('cfg-open').value === 'true', retry: parseInt($('cfg-retry').value) || 3,
+    retry_time: parseInt($('cfg-retry-time').value) || 600, retry_cycle: parseInt($('cfg-retry-cycle').value) || 60,
+    cc: { open: $('cfg-cc-open').value === 'true', cycle: parseInt($('cfg-cc-cycle').value) || 60, limit: parseInt($('cfg-cc-limit').value) || 120, endtime: parseInt($('cfg-cc-endtime').value) || 3600 },
+    uri: { open: $('cfg-uri').value === 'true', status: 404, reqfile: 'get.html' },
+    args: { open: $('cfg-args').value === 'true', status: 404, reqfile: 'get.html' },
+    post: { open: $('cfg-post').value === 'true', status: 403, reqfile: 'post.html' },
+    cookie: { open: $('cfg-cookie').value === 'true', status: 403, reqfile: 'cookie.html' },
+    scan: { open: $('cfg-scan').value === 'true', status: 444 },
+    'user-agent': { open: $('cfg-ua').value === 'true', status: 403, reqfile: 'user_agent.html' },
+    disable_path: $('cfg-disable-path').value.split('\n').map(s => s.trim()).filter(Boolean),
+    disable_ext: $('cfg-disable-ext').value.split(',').map(s => s.trim()).filter(Boolean),
+    disable_upload_ext: $('cfg-disable-upload').value.split(',').map(s => s.trim()).filter(Boolean),
+    disable_php_path: $('cfg-disable-php').value.split('\n').map(s => s.trim()).filter(Boolean),
+    detail_log: $('cfg-detail-log').value === 'true',
+    logs_path: $('cfg-log-path').value
+  };
+  try {
+    const r = await fetch(`${API}/config`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(updates) });
+    const d = await r.json();
+    if (d.success) toast('配置已保存'); else toast('保存失败: ' + d.message, 'error');
+  } catch(e) { toast('保存失败', 'error'); }
+}
+
+// ==================== SITES ====================
+let sitesData = [];
+
+async function loadSites() {
+  try {
+    const r = await fetch(`${API}/sites`);
+    const d = await r.json();
+    if (!d.success) { console.log("Config load fail:", d); return; }
+    sitesData = d.sites || [];
+    $('site-count').textContent = sitesData.length;
+    $('site-badge').textContent = sitesData.length;
+
+    if (!sitesData.length) {
+      $('sites-container').innerHTML = '<div class="card"><div class="empty-state">暂无站点，点击右上角"新建站点"创建</div></div>';
+      return;
+    }
+
+    const domainToSite = {};
+    (d.domains || []).forEach(e => { (e.domains || []).forEach(dm => { domainToSite[dm] = e.name; }); });
+
+    $('sites-container').innerHTML = sitesData.map(s => {
+      const domains = s.domains && s.domains.length ? s.domains.map(d => `<span class="sdomain" title="${escapeHtml(d)}">${escapeHtml(d)}</span>`).join('') : '<span style="color:#666;font-size:11px">未绑定域名</span>';
+      return `<div class="site-card">
+        <div class="shead">
+          <div>
+            <div class="sname">${escapeHtml(s.name)}</div>
+            <div class="spath">${escapeHtml(s.path || '-')}</div>
+            <div class="sdomains">${domains}</div>
+          </div>
+          <div class="sactions">
+            <button class="btn btn-ghost btn-sm" data-site-name="${escapeHtml(s.name)}" onclick="editSite(this.dataset.siteName)">编辑</button>
+            <button class="btn btn-danger btn-sm" data-site-name="${escapeHtml(s.name)}" onclick="deleteSite(this.dataset.siteName)">删除</button>
+          </div>
+        </div>
+        <div class="smeta">
+          <span class="tag ${s.open ? 'tag-green' : 'tag-red'}">${s.open ? '开' : '关'}</span>
+          <span class="tag ${s.cc_enabled ? 'tag-green' : 'tag-red'}">CC:${s.cc_enabled ? '开' : '关'}</span>
+          <span class="tag ${s.get_enabled !== false ? 'tag-green' : 'tag-red'}">GET:${s.get_enabled !== false ? '开' : '关'}</span>
+          <span class="tag ${s.post_enabled !== false ? 'tag-green' : 'tag-red'}">POST:${s.post_enabled !== false ? '开' : '关'}</span>
+          <span class="tag ${s.scan !== false ? 'tag-green' : 'tag-red'}">扫描:${s.scan !== false ? '开' : '关'}</span>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { toast('加载站点失败', 'error'); }
+}
+
+function showCreateSite() {
+  openModal('新建站点', `
+    <div class="form-group"><label>站点标识 (唯一ID)</label><input type="text" id="ns-name" placeholder="例如: myblog"></div>
+    <div class="form-group"><label>主域名</label><input type="text" id="ns-domain" placeholder="例如: www.example.com"></div>
+    <div class="form-group"><label>网站路径 (可选)</label><input type="text" id="ns-path" placeholder="/www/wwwroot/myblog"></div>
+  `, async () => {
+    const name = $('ns-name').value.trim();
+    if (!name) { toast('请填写站点标识', 'error'); return; }
+    try {
+      const r = await fetch(`${API}/sites`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name, domain: $('ns-domain').value.trim() || name, path: $('ns-path').value.trim() || ('/www/wwwroot/' + name) })
+      });
+      const d = await r.json();
+      if (d.success) { toast('站点创建成功'); loadSites(); } else toast('创建失败: ' + d.message, 'error');
+    } catch(e) { toast('创建失败', 'error'); }
+  }, '创建站点');
+}
+
+function deleteSite(name) {
+  if (!confirm(`确定删除站点 "${name}"？
+此操作会删除站点配置和域名绑定，但不会删除网站文件。`)) return;
+  openModal('确认删除', `<p style="color:#ef9a9a">确定要删除站点 <strong>${escapeHtml(name)}</strong> 吗？</p><p style="color:#888;font-size:13px;margin-top:8px">将同时删除该站点的域名映射配置。</p>`, async () => {
+    try {
+      const r = await fetch(`${API}/sites/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      const d = await r.json();
+      if (d.success) { toast('站点已删除'); loadSites(); } else toast('删除失败: ' + d.message, 'error');
+    } catch(e) { toast('删除失败', 'error'); }
+  }, '确认删除');
+}
+
+async function editSite(name) {
+  try {
+    currentEditSiteName = name;
+    const r = await fetch(`${API}/sites/${encodeURIComponent(name)}/detail`);
+    const d = await r.json();
+    if (!d.success) { toast('加载站点信息失败: ' + (d.message || '未知错误'), 'error'); return; }
+    const site = d.site;
+    const cfg = site.config || {};
+
+    const bodyHtml = `
+      <div class="tabs">
+        <div class="tab active" data-tab="gen" onclick="switchTab(this,'gen')">基本配置</div>
+        <div class="tab" data-tab="cc" onclick="switchTab(this,'cc')">CC &amp; 容错</div>
+        <div class="tab" data-tab="dm" onclick="switchTab(this,'dm')">域名管理</div>
+        <div class="tab" data-tab="sec" onclick="switchTab(this,'sec')">安全限制</div>
+        <div class="tab" data-tab="adv" onclick="switchTab(this,'adv')">高级设置</div>
+      </div>
+      <div class="tab-content active" id="tab-gen">
+        <div class="form-row"><div class="form-group"><label>站点项目描述</label><input type="text" id="es-project" value="${escapeHtml(cfg.project || '')}"></div></div>
+        <div class="form-group"><label>WAF 开关</label><select id="es-open">${boolOpt(cfg.open !== false)}</select></div>
+        <div class="form-row-3">
+          <div class="form-group"><label>URI 过滤</label><select id="es-uri">${boolOpt(cfg.uri !== false)}</select></div>
+          <div class="form-group"><label>GET 参数过滤</label><select id="es-args">${boolOpt(cfg.args !== false)}</select></div>
+          <div class="form-group"><label>POST 过滤</label><select id="es-post">${boolOpt(cfg.post !== false)}</select></div>
+        </div>
+        <div class="form-row-3">
+          <div class="form-group"><label>UA 过滤</label><select id="es-ua">${boolOpt(cfg['user-agent'] !== false)}</select></div>
+          <div class="form-group"><label>Cookie 过滤</label><select id="es-cookie">${boolOpt(cfg.cookie !== false)}</select></div>
+          <div class="form-group"><label>扫描器</label><select id="es-scan">${boolOpt(cfg.scan !== false)}</select></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>禁止国外访问</label><select id="es-abroad">${boolOpt(cfg.drop_abroad || false)}</select></div>
+          <div class="form-group"><label>日志记录</label><select id="es-log">${boolOpt(cfg.log !== false)}</select></div>
+        </div>
+      </div>
+      <div class="tab-content" id="tab-cc">
+        <h3>CC 防护</h3>
+        <div class="form-group"><label>CC 开关</label><select id="es-cc">${boolOpt(cfg.cc && cfg.cc.open)}</select></div>
+        <div class="form-row-3">
+          <div class="form-group"><label>周期 (秒)</label><input type="number" id="es-cc-cycle" value="${(cfg.cc && cfg.cc.cycle) || 60}"></div>
+          <div class="form-group"><label>同一URI限制次数</label><input type="number" id="es-cc-limit" value="${(cfg.cc && cfg.cc.limit) || 10}"></div>
+          <div class="form-group"><label>封锁时间 (秒)</label><input type="number" id="es-cc-endtime" value="${(cfg.cc && cfg.cc.endtime) || 7200}"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>CC 递增封锁</label><select id="es-cc-increase">${boolOpt(cfg.cc && cfg.cc.increase)}</select></div>
+        </div>
+        <h3>CC URI 白名单</h3>
+        <div class="form-group"><label>不触发CC限制的URI (每行一个)</label>
+          <textarea id="es-cc-uri-white" rows="2">${(Array.isArray(cfg.cc_uri_white) ? cfg.cc_uri_white : []).join('\n')}</textarea></div>
+        <h3>恶意容忍设置</h3>
+        <div class="form-row-3">
+          <div class="form-group"><label>统计周期 (秒)</label><input type="number" id="es-retry-cycle" value="${cfg.retry_cycle || 60}"></div>
+          <div class="form-group"><label>触发封锁次数</label><input type="number" id="es-retry" value="${cfg.retry || 1}"></div>
+          <div class="form-group"><label>封锁基数 (秒)</label><input type="number" id="es-retry-time" value="${cfg.retry_time || 9620}"></div>
+        </div>
+      </div>
+      <div class="tab-content" id="tab-dm">
+        <div class="mb-10"><strong>已绑定域名:</strong></div>
+        <div id="domain-list" style="margin-bottom:10px">${renderDomainList(site.domains || [])}</div>
+        <div class="flex" style="gap:6px">
+          <input type="text" id="new-domain" placeholder="输入新域名" style="flex:1">
+          <button class="btn btn-success btn-sm" id="add-domain-btn">添加</button>
+        </div>
+        <div style="margin-top:8px;font-size:12px;color:#888">网站路径: ${escapeHtml(site.path || '-')}</div>
+      </div>
+      <div class="tab-content" id="tab-sec">
+        <div class="form-group"><label>禁止上传的文件类型 (逗号分隔)</label>
+          <input type="text" id="es-upload-ext" value="${(Array.isArray(cfg.disable_upload_ext) ? cfg.disable_upload_ext : ['php','jsp','asp','aspx']).join(',')}"></div>
+        <div class="form-group"><label>禁止访问的扩展名 (逗号分隔, 如 sql,bak)</label>
+          <input type="text" id="es-disable-ext" value="${(Array.isArray(cfg.disable_ext) ? cfg.disable_ext : []).join(',')}"></div>
+        <div class="form-group"><label>禁止执行PHP的URL路径 (每行一个, 如 /upload)</label>
+          <textarea id="es-disable-php-path" rows="2">${(Array.isArray(cfg.disable_php_path) ? cfg.disable_php_path : []).join('\n')}</textarea></div>
+        <div class="form-group"><label>禁止访问的URL路径 (每行一个)</label>
+          <textarea id="es-disable-path" rows="2">${(Array.isArray(cfg.disable_path) ? cfg.disable_path : []).join('\n')}</textarea></div>
+        <div class="form-group"><label>URI 字符黑名单 (每行一个, 如 .svn .git)</label>
+          <textarea id="es-uri-find" rows="2">${(Array.isArray(cfg.uri_find) ? cfg.uri_find : []).join('\n')}</textarea></div>
+        <div class="form-group"><label>URL 白名单 (每行一个URL, 跳过WAF检查)</label>
+          <textarea id="es-url-white" rows="2">${(Array.isArray(cfg.url_white) ? cfg.url_white : []).join('\n')}</textarea></div>
+      </div>
+      <div class="tab-content" id="tab-adv">
+        <div class="form-group"><label>CDN 模式</label><select id="es-cdn">${boolOpt(cfg.cdn || false)}</select></div>
+        <div class="form-group"><label>CDN 取真实IP头 (逗号分隔)</label>
+          <input type="text" id="es-cdn-hdr" value="${(Array.isArray(cfg.cdn_header) ? cfg.cdn_header : ['x-forwarded-for','x-real-ip']).join(',')}"></div>
+        <h3>日志设置</h3>
+        <div class="form-row"><div class="form-group"><label>日志文件大小限制</label><input type="number" id="es-log-size" value="${cfg.log_size || 0}"></div></div>
+        <h3>禁用指定规则 (每行一条规则名)</h3>
+        <div class="form-row-3">
+          <div class="form-group"><label>URL规则黑名单</label><textarea id="es-dr-url" rows="2">${(cfg.disable_rule && Array.isArray(cfg.disable_rule.url) ? cfg.disable_rule.url : []).join('\n')}</textarea></div>
+          <div class="form-group"><label>POST规则黑名单</label><textarea id="es-dr-post" rows="2">${(cfg.disable_rule && Array.isArray(cfg.disable_rule.post) ? cfg.disable_rule.post : []).join('\n')}</textarea></div>
+          <div class="form-group"><label>Args规则黑名单</label><textarea id="es-dr-args" rows="2">${(cfg.disable_rule && Array.isArray(cfg.disable_rule.args) ? cfg.disable_rule.args : []).join('\n')}</textarea></div>
+        </div>
+        <div class="form-row-3">
+          <div class="form-group"><label>Cookie规则黑名单</label><textarea id="es-dr-cookie" rows="2">${(cfg.disable_rule && Array.isArray(cfg.disable_rule.cookie) ? cfg.disable_rule.cookie : []).join('\n')}</textarea></div>
+          <div class="form-group"><label>UA规则黑名单</label><textarea id="es-dr-ua" rows="2">${(cfg.disable_rule && Array.isArray(cfg.disable_rule.user_agent) ? cfg.disable_rule.user_agent : []).join('\n')}</textarea></div>
+        </div>
+        <div class="form-group"><label>URL专用过滤 (一行一条: URL正则,参数正则)</label>
+          <textarea id="es-url-rule" rows="2">${renderUrlRules(cfg.url_rule || [])}</textarea></div>
+        <div class="form-group"><label>受保护URL (一行一条: URL正则,参数名,期望值)</label>
+          <textarea id="es-url-tell" rows="2">${renderUrlRules(cfg.url_tell || [])}</textarea></div>
+        <div class="form-group"><label>敏感文字替换 (JSON: [{"原词":"替换词"}])</label>
+          <textarea id="es-body-replace" rows="2">${JSON.stringify(cfg.body_character_string || [], null, 2)}</textarea></div>
+      </div>
+    `;
+
+        openModal('编辑站点: ' + name, bodyHtml, async () => {
+      const updates = {
+        open: $('es-open').value === 'true',
+        project: $('es-project').value.trim(),
+        uri: $('es-uri').value === 'true', args: $('es-args').value === 'true',
+        post: $('es-post').value === 'true',
+        cookie: $('es-cookie').value === 'true', ['user-agent']: $('es-ua').value === 'true',
+        scan: $('es-scan').value === 'true', drop_abroad: $('es-abroad').value === 'true',
+        log: $('es-log').value === 'true', cdn: $('es-cdn').value === 'true',
+        cdn_header: $('es-cdn-hdr').value.split(',').map(s => s.trim()).filter(Boolean),
+        disable_upload_ext: $('es-upload-ext').value.split(',').map(s => s.trim()).filter(Boolean),
+        disable_ext: $('es-disable-ext').value.split(',').map(s => s.trim()).filter(Boolean),
+        disable_php_path: $('es-disable-php-path').value.split('\n').map(s => s.trim()).filter(Boolean),
+        disable_path: $('es-disable-path').value.split('\n').map(s => s.trim()).filter(Boolean),
+        url_white: $('es-url-white').value.split('\n').map(s => s.trim()).filter(Boolean),
+        uri_find: $('es-uri-find').value.split('\n').map(s => s.trim()).filter(Boolean),
+        cc_uri_white: $('es-cc-uri-white').value.split('\n').map(s => s.trim()).filter(Boolean),
+        log_size: parseInt($('es-log-size').value) || 0,
+        retry: parseInt($('es-retry').value) || 1,
+        retry_cycle: parseInt($('es-retry-cycle').value) || 60,
+        retry_time: parseInt($('es-retry-time').value) || 9620,
+        cc: { open: $('es-cc').value === 'true', cycle: parseInt($('es-cc-cycle').value) || 60,
+              limit: parseInt($('es-cc-limit').value) || 10, endtime: parseInt($('es-cc-endtime').value) || 7200,
+              increase: $('es-cc-increase').value === 'true' },
+        disable_rule: {
+          url: $('es-dr-url').value.split('\n').map(s => s.trim()).filter(Boolean),
+          post: $('es-dr-post').value.split('\n').map(s => s.trim()).filter(Boolean),
+          args: $('es-dr-args').value.split('\n').map(s => s.trim()).filter(Boolean),
+          cookie: $('es-dr-cookie').value.split('\n').map(s => s.trim()).filter(Boolean),
+          user_agent: $('es-dr-ua').value.split('\n').map(s => s.trim()).filter(Boolean)
+        }
+      };
+      // Parse url_rule from textarea (split by first comma per line)
+      try {
+        updates.url_rule = $('es-url-rule').value.split('\n').map(function(s) {
+          s = s.trim(); if (!s) return null;
+          var c = s.indexOf(',');
+          if (c === -1) return [s, ''];
+          return [s.substring(0, c).trim(), s.substring(c + 1).trim()];
+        }).filter(Boolean);
+      } catch(e) { updates.url_rule = []; }
+      // Parse url_tell same format
+      try {
+        updates.url_tell = $('es-url-tell').value.split('\n').map(function(s) {
+          s = s.trim(); if (!s) return null;
+          var c = s.indexOf(',');
+          if (c === -1) return [s, ''];
+          return [s.substring(0, c).trim(), s.substring(c + 1).trim()];
+        }).filter(Boolean);
+      } catch(e) { updates.url_tell = []; }
+      // Parse body_character_string from JSON textarea
+      try {
+        updates.body_character_string = JSON.parse($('es-body-replace').value) || [];
+      } catch(e) { updates.body_character_string = []; }
+      try {
+        const r = await fetch(`${API}/sites/${encodeURIComponent(name)}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(updates) });
+        const d = await r.json();
+        if (d.success) { toast('站点配置已更新'); loadSites(); } else toast('保存失败: ' + d.message, 'error');
+      } catch(e) { toast('保存失败', 'error'); }
+    }, '保存配置');
+    // Wire up add-domain button
+    setTimeout(function() {
+      var btn = document.getElementById('add-domain-btn');
+      if (btn) btn.onclick = function() { addDomainToSite(currentEditSiteName); };
+    }, 50);
+  } catch(e) { toast('加载站点信息失败: ' + e.message, 'error'); }
+}
+
+function renderDomainList(domains) {
+  if (!domains || !domains.length) return '<div style="color:#666;padding:8px">暂无域名</div>';
+  return domains.map(d => `<div class="flex-between" style="padding:6px 0;border-bottom:1px solid #2a3a4a">
+    <span class="code">${escapeHtml(d)}</span>
+    <button class="btn btn-danger btn-sm" data-domain="${escapeHtml(d)}" onclick="removeDomain(this.dataset.domain)">移除</button>
+  </div>`).join('');
+}
+
+async function addDomainToSite(siteName) {
+  const domain = $('new-domain').value.trim();
+  if (!domain) { toast('请填写域名', 'error'); return; }
+  try {
+    const r = await fetch(`${API}/domains`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({site: siteName, domain}) });
+    const d = await r.json();
+    if (d.success) { toast('域名已添加'); editSite(siteName); }
+    else toast('添加失败: ' + d.message, 'error');
+  } catch(e) { toast('添加失败', 'error'); }
+}
+
+async function removeDomain(domain) {
+  if (!confirm(`移除域名 "${domain}"？`)) return;
+  try {
+    const r = await fetch(`${API}/domains?domain=${encodeURIComponent(domain)}`, { method: 'DELETE' });
+    const d = await r.json();
+    if (d.success) { toast('域名已移除'); loadSites(); }
+    else toast('移除失败: ' + d.message, 'error');
+  } catch(e) { toast('移除失败', 'error'); }
+}
+
+
+function renderUrlRules(rules) {
+  if (!rules || !rules.length) return '';
+  return rules.map(r => r.join(',')).join('\n');
+}
+
+function switchTab(el, tab) {
+  document.querySelectorAll('#modal .tab, #modal .tab-content').forEach(e => e.classList.remove('active'));
+  document.querySelectorAll(`#modal .tab[data-tab="${tab}"], #tab-${tab}`).forEach(e => e.classList.add('active'));
+}
+
+// ==================== RULES ====================
+const RULE_TYPES = ['args','post','url','cookie','user_agent','referer','ip_black','ip_white','url_black','url_white','cc_uri_white','head_white','scan_black','cn'];
+let currentRules = [];
+let rulesGeneration = 0;
+
+function populateRuleTypes() {
+  const sel = $('rule-type-select');
+  sel.innerHTML = RULE_TYPES.map(t => `<option value="${t}">${t}</option>`).join('');
+  sel.onchange = loadRules;
+  loadRules();
+}
+
+async function loadRules() {
+  const type = $('rule-type-select').value;
+  const gen = ++rulesGeneration;
+  try {
+    const r = await fetch(`${API}/rules/${type}`);
+    const d = await r.json();
+    if (!d.success) { toast('加载规则失败: ' + (d.message || '未知错误'), 'error'); return; }
+    if (gen === rulesGeneration) {
+      currentRules = Array.isArray(d.rules) ? d.rules : [];
+      renderRules();
+    }
+  } catch(e) { toast('加载规则失败: ' + e.message, 'error'); }
+}
+
+function renderRules() {
+  $('rule-count').textContent = currentRules.length;
+  if (!currentRules.length) { $('rules-list').innerHTML = '<div class="empty-state">暂无规则</div>'; return; }
+
+  // IP段规则 (cn) 使用简洁的表格显示
+  const ruleType = $('rule-type-select').value;
+  if (ruleType === 'cn') {
+    $('rules-list').innerHTML = `<table><tr><th>起始IP</th><th>结束IP</th><th>操作</th></tr>${
+      currentRules.map((r, i) => {
+        const range = (r[1] || '').split('-');
+        const startIp = range[0] || '';
+        const endIp = range[1] || '';
+        return `<tr><td class="code">${escapeHtml(startIp)}</td><td class="code">${escapeHtml(endIp)}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="removeRule(${i})">删除</button></td></tr>`;
+      }).join('')
+    }</table>`;
+    return;
+  }
+
+  $('rules-list').innerHTML = currentRules.map((r, i) => {
+    // Rule format from JSON: [enabled, regex_pattern, rule_name, unused]
+    // JavaScript arrays are 0-indexed, so:
+    //   r[0] = enabled flag (0 or 1)
+    //   r[1] = regex pattern string
+    //   r[2] = rule name string
+    //   r[3] = unused (always 0)
+    const enabled = r[0] === 1;
+    const pattern = r[1] || '';
+    const name = r[2] || '';
+    return `<div class="rule-row">
+      <input type="checkbox" class="enabled" ${enabled ? 'checked' : ''}>
+      <input type="text" value="${escapeHtml(name)}" placeholder="规则名称" class="code" style="width:130px" data-field="name">
+      <input type="text" value="${escapeHtml(pattern)}" placeholder="正则表达式" class="code" style="flex:1" data-field="pattern">
+      <button class="btn btn-danger btn-sm" onclick="removeRule(${i})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function addRuleRow() {
+  const type = $('rule-type-select').value;
+  if (type === 'cn') {
+    const startIp = prompt('输入起始IP:');
+    if (!startIp) return;
+    const endIp = prompt('输入结束IP:');
+    if (!endIp) return;
+    currentRules.push([1, startIp.trim() + '-' + endIp.trim(), '国外IP段', 0]);
+    rulesGeneration++;
+    renderRules();
+    return;
+  }
+  currentRules.push([1, '', '新规则', 0]); rulesGeneration++; renderRules();
+}
+function removeRule(idx) { currentRules.splice(idx, 1); rulesGeneration++; renderRules(); }
+
+async function saveRules() {
+  const rows = $('rules-list').querySelectorAll('.rule-row');
+  const rules = [];
+  rows.forEach(row => {
+    const enabled = row.querySelector('.enabled').checked ? 1 : 0;
+    const inputs = row.querySelectorAll('input[data-field]');
+    rules.push([enabled, inputs[1] ? inputs[1].value : '', inputs[0] ? inputs[0].value : '', 0]);
+  });
+  const type = $('rule-type-select').value;
+  try {
+    const r = await fetch(`${API}/rules/${type}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(rules) });
+    const d = await r.json();
+    if (d.success) { toast('规则已保存'); loadRules(); } else toast('保存失败: ' + d.message, 'error');
+  } catch(e) { toast('保存失败', 'error'); }
+}
+
+// ==================== BLOCKED ====================
+async function loadBlocked() {
+  try {
+    const r = await fetch(`${API}/blocked`);
+    const d = await r.json();
+    if (!d.success) { console.log("Config load fail:", d); return; }
+    $('blocked-count').textContent = d.total || 0;
+    $('blocked-badge').textContent = d.total || 0;
+    if (!d.ips || !d.ips.length) {
+      $('blocked-list').innerHTML = '<div class="empty-state">暂无封锁 IP</div>'; return;
+    }
+    $('blocked-list').innerHTML = `<table><tr><th>IP 地址</th><th>违规次数</th><th>操作</th></tr>${
+      d.ips.map(b => `<tr><td class="code">${b.ip}</td><td>${b.violations}</td><td><button class="btn btn-success btn-sm" onclick="unblockIP('${b.ip}')">解封</button></td></tr>`).join('')
+    }</table>`;
+  } catch(e) { toast('加载封锁列表失败', 'error'); }
+}
+
+async function unblockIP(ip) {
+  try {
+    const r = await fetch(`${API}/unblock?ip=${encodeURIComponent(ip)}`);
+    const d = await r.json();
+    if (d.success) { toast(`IP ${ip} 已解封`); loadBlocked(); } else toast(d.message, 'error');
+  } catch(e) { toast('解封失败', 'error'); }
+}
+
+async function clearBlocked() {
+  if (!confirm('确定清空所有封锁 IP？')) return;
+  try {
+    const r = await fetch(`${API}/clear-blocked`);
+    const d = await r.json();
+    if (d.success) { toast(`已清除 ${d.cleared || 0} 个封锁`); loadBlocked(); }
+  } catch(e) { toast('操作失败', 'error'); }
+}
+
+// ==================== LOGS ====================
+async function populateLogServers() {
+  try {
+    const r = await fetch(`${API}/sites`);
+    const d = await r.json();
+    if (!d.success) { console.log("Config load fail:", d); return; }
+    const sel = $('log-server');
+    sel.innerHTML = '<option value="">-- 所有站点 --</option>' +
+      d.sites.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('');
+  } catch(e) {}
+}
+
+async function loadLogs() {
+  const server = $('log-server').value;
+  const date = $('log-date').value;
+  let url = `${API}/logs?lines=500`;
+  if (server) url += `&server=${encodeURIComponent(server)}`;
+  if (date) url += `&date=${encodeURIComponent(date)}`;
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!d.success) { console.log("Config load fail:", d); return; }
+    if (!d.logs || !d.logs.length) {
+      $('logs-content').innerHTML = '<div class="empty-state">暂无日志</div>'; return;
+    }
+    $('logs-content').innerHTML = d.logs.map(l => `<div class="log-line">${escapeHtml(l)}</div>`).join('');
+    toast(`加载 ${d.count} 条日志`);
+  } catch(e) { toast('加载日志失败', 'error'); }
+}
+
+function refreshLogs() { loadLogs(); }
+function autoFillLatestLog() {
+  $('log-date').value = new Date().toISOString().slice(0, 10);
+  loadLogs();
+}
+
+// ==================== RULE TESTER ====================
+async function testRule() {
+  const pattern = $('test-pattern').value;
+  const payload = $('test-payload').value;
+  if (!pattern || !payload) { toast('请填写正则和载荷', 'error'); return; }
+  try {
+    const r = await fetch(`${API}/test-rule`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({pattern, payload}) });
+    const d = await r.json();
+    $('test-result').innerHTML = d.success ? `
+      <div class="card" style="margin:0">
+        <p>结果: <strong style="color:${d.matched ? '#e74c3c' : '#4fc3f7'}">${d.matched ? '✅ 匹配成功 - 会被拦截' : '❌ 不匹配 - 通过'}</strong></p>
+        <p style="font-size:12px;color:#888;margin-top:5px">正则: <span class="code">${escapeHtml(pattern)}</span></p>
+        <p style="font-size:12px;color:#888;margin-top:3px">载荷: <span class="code">${escapeHtml(payload.length > 200 ? payload.substring(0,200)+'...' : payload)}</span></p>
+      </div>
+    ` : `<div class="empty-state">测试失败: ${d.message}</div>`;
+  } catch(e) { toast('测试请求失败', 'error'); }
+}
+
+// ========== Init ==========
+populateLogServers();
+$('log-date').value = new Date().toISOString().slice(0, 10);
+loadDashboard();
+</script>
+</body>
+</html>

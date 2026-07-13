@@ -1,0 +1,5 @@
+[
+	["\/wp-content\/themes\/mTheme-Unus\/css\/css.php", "files", "任意读取文件", 0],
+	["\/wp-admin\/post.php", "thumb|meta_input[_wp_attached_file]", "任意文件删除", 0]
+
+]

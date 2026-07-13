@@ -1,0 +1,8 @@
+[
+	"^/wp-admin/edit.php",
+	"^/wp-admin/upload.php",
+	"^/wp-admin/post-new.php",
+	"^/wp-admin/admin-ajax.php",
+  	"^/wp-admin/theme-editor.php",
+	"^/wp-admin/options-general.php"
+]

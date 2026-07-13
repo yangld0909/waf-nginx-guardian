@@ -1,0 +1,34 @@
+# Logs and runtime artifacts
+logs/*.log
+logs/*.json
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Compiled Lua binaries (per-platform, pre-built by BaoTa panel)
+*.dll
+*.so
+*.dylib
+
+# Sensitive local configs (uncomment if your config.json contains real secrets)
+# config.json
+# site.json
+# domains.json
+
+# Project-local Claude Code instructions
+CLAUDE.md
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
