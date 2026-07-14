@@ -1,84 +1,86 @@
 # Guardian WAF
 
-基于 OpenResty/lua-nginx-module 的 Web 应用防火墙，纯 Lua 实现，灵感来自宝塔 WAF 架构。
+A Web Application Firewall based on OpenResty/lua-nginx-module, implemented in pure Lua, inspired by the BaoTa WAF architecture.
 
-## 项目结构
+[中文文档](README_zh.md)
+
+## Project Structure
 
 ```
 waf_nginx_new/
-├── init.lua              # 启动入口 (init_by_lua_file)
-├── waf.lua               # 请求入口 (access_by_lua_file)
-├── guardian.lua          # 检测流水线编排
-├── admin.lua             # 管理 API
-├── config.lua            # 配置读写
-├── config.json           # 全局配置
-├── site.json             # 站点配置覆盖
-├── domains.json          # 域名 → 站点标识映射
+├── init.lua              # Startup entry (init_by_lua_file)
+├── waf.lua               # Request entry (access_by_lua_file)
+├── guardian.lua          # Detection pipeline orchestrator
+├── admin.lua             # Management API
+├── config.lua            # Config read/write
+├── config.json           # Global configuration
+├── site.json             # Per-site configuration overrides
+├── domains.json          # Domain name → site identifier mapping
 │
-├── ip.lua                # IP 管理、CDN 取IP、梯度封锁
-├── ua.lua                # UA 过滤、蜘蛛识别+DNS 验证
-├── cc.lua                # CC 限速、增强验证码
-├── detection.lua         # 正则匹配引擎、URL/Cookie/Referer 检测
-├── post.lua              # POST 参数过滤、文件上传校验、ThinkPHP 防护
-├── scan.lua              # 扫描器检测、WebShell 扫描、站点自定义规则
-├── semantics.lua         # SQL 注入 + XSS 语义分析引擎
-├── log.lua               # 日志、统计
-├── body.lua              # 响应体内容过滤
-├── multipart.lua         # multipart/form-data 解析器
-├── socket.lua            # DNS 反向查询 (爬虫验证)
+├── ip.lua                # IP management, CDN real-IP, graduated blocking
+├── ua.lua                # UA filtering, spider identification + DNS verification
+├── cc.lua                # CC rate limiting, enhanced captcha
+├── detection.lua         # Regex match engine, URL/Cookie/Referer detection
+├── post.lua              # POST parameter filtering, file upload validation, ThinkPHP defense
+├── scan.lua              # Scanner detection, WebShell scan, per-site custom rules
+├── semantics.lua         # SQL injection + XSS semantic analysis engine
+├── log.lua               # Logging and statistics
+├── body.lua              # Response body content filtering
+├── multipart.lua         # multipart/form-data parser
+├── socket.lua            # Reverse DNS lookup (spider verification)
 │
-├── nginx.conf            # Nginx 配置示例
-├── html/                 # 拦截页面 + 管理面板
-│   ├── admin.html        # 管理界面 (单页应用)
-│   ├── get.html          # GET/URI 拦截页
-│   ├── post.html         # POST 拦截页
-│   ├── cookie.html       # Cookie 拦截页
-│   ├── user_agent.html   # UA 拦截页
-│   └── other.html        # 其他拦截页
-├── rule/                 # 规则文件 (JSON)
-│   ├── args.json         # GET 参数规则 (29条)
-│   ├── post.json         # POST 参数规则 (18条)
-│   ├── url.json          # URL 路径规则 (7条)
-│   ├── cookie.json       # Cookie 规则
-│   ├── user_agent.json   # UA 规则
-│   ├── referer.json      # Referer 规则
-│   ├── ip_black.json     # IP 黑名单
-│   ├── ip_white.json     # IP 白名单
-│   ├── url_white.json    # URL 白名单
-│   ├── url_black.json    # URL 黑名单
-│   ├── cc_uri_white.json # CC 白名单 URI
-│   ├── head_white.json   # HEAD 白名单
-│   ├── scan_black.json   # 扫描器特征
-│   └── cn.json           # 中国 IP 段
-└── logs/                 # 日志目录
+├── nginx.conf            # Nginx configuration example
+├── html/                 # Block pages + admin panel
+│   ├── admin.html        # Admin interface (SPA)
+│   ├── get.html          # GET/URI block page
+│   ├── post.html         # POST block page
+│   ├── cookie.html       # Cookie block page
+│   ├── user_agent.html   # UA block page
+│   └── other.html        # Other block page
+├── rule/                 # Rule files (JSON)
+│   ├── args.json         # GET parameter rules (29 entries)
+│   ├── post.json         # POST parameter rules (18 entries)
+│   ├── url.json          # URL path rules (7 entries)
+│   ├── cookie.json       # Cookie rules
+│   ├── user_agent.json   # UA rules
+│   ├── referer.json      # Referer rules
+│   ├── ip_black.json     # IP blacklist
+│   ├── ip_white.json     # IP whitelist
+│   ├── url_white.json    # URL whitelist
+│   ├── url_black.json    # URL blacklist
+│   ├── cc_uri_white.json # CC whitelist URIs
+│   ├── head_white.json   # HEAD whitelist
+│   ├── scan_black.json   # Scanner signatures
+│   └── cn.json           # China IP ranges
+└── logs/                 # Log directory
 ```
 
-## 部署步骤
+## Deployment
 
-### 1. 环境要求
+### 1. Requirements
 
-- Nginx + OpenResty (或 ngx_lua_module)
+- Nginx + OpenResty (or ngx_lua_module)
 - Lua 5.1+
-- lua-cjson (通常已包含在 OpenResty 中)
-- LuaSocket (用于爬虫 DNS 验证，可选)
+- lua-cjson (typically bundled with OpenResty)
+- LuaSocket (for spider DNS verification, optional)
 
-### 2. 复制文件到服务器
+### 2. Copy Files to Server
 
 ```bash
-# 将项目放到服务器路径，例如 /www/server/btwaf/
+# Place the project at your server path, e.g. /www/server/btwaf/
 cp -r waf_nginx_new /www/server/btwaf/
 ```
 
-### 3. 修改配置
+### 3. Edit Configuration
 
-**a) 修改 `config.lua` 中的项目根路径**
+**a) Update project root path in `config.lua`**
 
 ```lua
--- config.lua 第 7 行
+-- config.lua line 7
 _M.root = "/www/server/btwaf/"
 ```
 
-**b) 修改 `config.json` 中的路径**
+**b) Update paths in `config.json`**
 
 ```json
 {
@@ -87,12 +89,12 @@ _M.root = "/www/server/btwaf/"
 }
 ```
 
-### 4. 配置 Nginx
+### 4. Configure Nginx
 
-在 `nginx.conf` (或站点配置) 中添加：
+Add the following to `nginx.conf` (or your site config):
 
 ```nginx
-# 在 http 块中添加
+# In the http {} block
 lua_shared_dict waf_cache 30m;
 lua_shared_dict waf_drop 30m;
 lua_shared_dict waf_stats 30m;
@@ -102,74 +104,74 @@ init_by_lua_file  /www/server/btwaf/init.lua;
 access_by_lua_file /www/server/btwaf/waf.lua;
 ```
 
-如果同时需要响应体过滤，添加：
+If response body filtering is also needed, add:
 
 ```nginx
-# 在 server 块或 location 块中
+# In the server {} or location {} block
 body_filter_by_lua_file /www/server/btwaf/body.lua;
 ```
 
-### 5. 重载 Nginx
+### 5. Reload Nginx
 
 ```bash
-nginx -t        # 测试配置
-nginx -s reload # 重载
+nginx -t        # Test configuration
+nginx -s reload # Reload
 ```
 
-### 6. 验证运行
+### 6. Verify Operation
 
 ```bash
-# 检查 Nginx 启动日志
+# Check Nginx startup log
 tail -f /var/log/nginx/error.log
 
-# 浏览器访问管理面板
+# Hit admin status endpoint
 curl http://127.0.0.1/waf/admin/status
 
-# 应返回 JSON: {"success":true,"status":"running",...}
+# Expected response: {"success":true,"status":"running",...}
 ```
 
-## 管理面板
+## Admin Panel
 
-浏览器访问 `http://your-server/waf/admin`
+Browse to `http://your-server/waf/admin`
 
-| 页面 | 功能 |
+| Page | Function |
 |---|---|
-| 仪表盘 | 拦截统计、封锁 IP、站点排行 |
-| 全局配置 | WAF 开关、CC 参数、各检测维度开关、全局安全限制 |
-| 站点管理 | 多站点 CRUD、域名绑定、各站点独立配置 |
-| 规则管理 | 14 种规则集在线编辑 |
-| IP 封锁 | 查看/解封/清空封锁 IP |
-| 日志查看 | 按站点+日期过滤查询 |
-| 规则测试 | 正则+载荷匹配测试 |
+| Dashboard | Block statistics, blocked IPs, site ranking |
+| Global Config | WAF switches, CC parameters, per-dimension detection toggles, global security limits |
+| Site Management | Multi-site CRUD, domain binding, per-site independent config |
+| Rule Management | Online editor for the 14 rule sets |
+| IP Blocking | View / unblock / clear blocked IPs |
+| Log Viewer | Filter logs by site + date |
+| Rule Tester | Regex + payload match testing |
 
-默认仅允许 `127.0.0.1` 访问，如需开放请修改 `admin.lua` 中的 `ADMIN_IPS` 表。
+By default only `127.0.0.1` is allowed. To open access, edit the `ADMIN_IPS` table in `admin.lua`.
 
-## 配置说明
+## Configuration
 
-### 配置分层
+### Layered Configuration
 
 ```
-全局配置 (config.json)  →  所有站点共用默认值
+Global config (config.json)  →  shared defaults for all sites
      ↓
-站点配置 (site.json)   →  按站点覆盖/叠加全局配置
+Site config (site.json)      →  overrides/extends global per site
 ```
 
-- **标量配置** (CC 参数、retry、检测开关)：站点值替代全局
-- **列表配置** (禁止路径、禁止扩展名、禁止上传类型、禁止 PHP 路径)：站点值叠加到全局
+- **Scalar configs** (CC parameters, retry, detection toggles): site value replaces global
+- **List configs** (blocked paths, blocked extensions, blocked upload types, blocked PHP paths): site values append to global
 
-### 添加站点
+### Adding a Site
 
-通过管理面板 → 站点管理 → 新建站点，或直接编辑 `domains.json` 和 `site.json`：
+Either via the admin panel (Site Management → New Site), or by directly editing `domains.json` and `site.json`:
 
 ```json
-// domains.json - 域名映射
+// domains.json — domain mapping
 [
   {"name": "myblog", "path": "/www/wwwroot/myblog", "domains": ["www.example.com", "blog.example.com"]}
 ]
 ```
 
 ```json
-// site.json - 站点配置 (不设置的项继承全局)
+// site.json — site config (unspecified keys inherit from global)
 {
   "myblog": {
     "cc": {"open": true, "cycle": 60, "limit": 30, "endtime": 3600},
@@ -179,61 +181,61 @@ curl http://127.0.0.1/waf/admin/status
 }
 ```
 
-## 检测流水线执行顺序
+## Detection Pipeline Order
 
 ```
-请求进入
-  ├─ 1. IP 白名单 → 跳过所有检测
-  ├─ 2. IP 黑名单 → 直接拦截
-  ├─ 3. UA 白/黑名单
-  ├─ 4. URI 关键词拦截
-  ├─ 5. CC 静态资源计数
-  ├─ 6. IP 封锁状态检查
-  ├─ 7. HEAD 请求处理
-  ├─ 8. HTTP 方法校验
-  ├─ 9. Header 长度校验
-  ├─ 10. Transfer-Encoding 检查
-  ├─ 11. URL 白名单 → 轻量检测
-  │   └─ args + post + multipart
-  ├─ 12. URL 黑名单
-  ├─ 13. 地理封锁
-  ├─ 14. WebShell 扫描
-  ├─ 15. 爬虫识别
-  │   ├─ 验证通过 → 轻量检测 (args + scan + thinkphp + post)
-  │   └─ 未通过 → 全量检测
-  │       ├─ UA 规则
-  │       ├─ CC 标准+增强+自适应
-  │       ├─ URL 规则
-  │       ├─ Referer / Cookie
-  │       ├─ GET 参数规则 + 语义分析
-  │       ├─ 扫描工具检测
-  │       ├─ ThinkPHP RCE
-  │       ├─ POST 规则 + 语义分析
-  │       ├─ 文件上传校验
-  │       └─ 站点自定义规则
+Request enters
+  ├─ 1.  IP whitelist          → skip all checks
+  ├─ 2.  IP blacklist          → block immediately
+  ├─ 3.  UA whitelist/blacklist
+  ├─ 4.  URI keyword block
+  ├─ 5.  CC static asset counter
+  ├─ 6.  IP drop-state check
+  ├─ 7.  HEAD request handling
+  ├─ 8.  HTTP method validation
+  ├─ 9.  Header length validation
+  ├─ 10. Transfer-Encoding check
+  ├─ 11. URL whitelist          → lightweight checks
+  │       └─ args + post + multipart
+  ├─ 12. URL blacklist
+  ├─ 13. Geo blocking
+  ├─ 14. WebShell scan
+  ├─ 15. Spider identification
+  │       ├─ Verified (spider) → lightweight checks (args + scan + thinkphp + post)
+  │       └─ Not verified       → full checks
+  │           ├─ UA rules
+  │           ├─ CC standard + enhanced + adaptive
+  │           ├─ URL rules
+  │           ├─ Referer / Cookie
+  │           ├─ GET param rules + semantic analysis
+  │           ├─ Scanner detection
+  │           ├─ ThinkPHP RCE
+  │           ├─ POST rules + semantic analysis
+  │           ├─ File upload validation
+  │           └─ Per-site custom rules
 ```
 
-## 包管理 / 依赖
+## Dependencies
 
-本项目无外部依赖，所有代码均为纯 Lua。需要：
+No external dependencies — all code is pure Lua. Required runtime components:
 
-| 组件 | 来源 | 必需 |
+| Component | Source | Required |
 |---|---|---|
-| `cjson` | OpenResty 内置 | 是 |
-| `lua_socket` | OpenResty 可选包 | 仅爬虫验证 |
-| `ngx.shared.DICT` | lua-nginx-module | 是 |
+| `cjson` | Built into OpenResty | Yes |
+| `lua_socket` | OpenResty optional package | Only for spider verification |
+| `ngx.shared.DICT` | lua-nginx-module | Yes |
 
-## 许可
+## License
 
 Apache 2.0
 
-## 待完善 / 已知问题
+## To-Do / Known Issues
 
-### 🔧 有代码但管理界面暂未暴露的功能
+### 🔧 Backend-Implemented but Not Exposed in Admin UI
 
-以下功能后端已实现，但暂无可视化管理界面，需直接编辑配置文件：
+The following features are implemented in the backend but have no visual management interface; they must be edited in the config files directly:
 
-#### UA 白/黑名单
+#### UA Whitelist / Blacklist
 
 ```json
 // config.json
@@ -243,20 +245,20 @@ Apache 2.0
 }
 ```
 
-对应代码：`ua.lua` → `check_ua_whitelist()` / `check_ua_blacklist()`
+Code: `ua.lua` → `check_ua_whitelist()` / `check_ua_blacklist()`
 
-#### 蜘蛛池同步
+#### Spider Pool Sync
 
-- 内置在 `zhi.lua` 中，通过反向 DNS 验证爬虫身份
-- 云端蜘蛛池列表同步功能暂未对接，当前为静态内置列表
-- 对应代码：`init.lua` → `verify_spider()`
+- Built-in `zhi.lua` performs reverse DNS verification of spider identity
+- Cloud spider-pool sync is not yet wired up; currently a static built-in list
+- Code: `init.lua` → `verify_spider()`
 
 
-### ⚠️ 建议改进
+### ⚠️ Suggested Improvements
 
-1. **UA 白/黑名单管理界面** — 在全局配置页面增加 ua_white/ua_black 编辑区
-2. **蜘蛛池云端同步** — 对接云端 API 自动更新已知爬虫列表
-3. **日志自动清理** — `log_save` 配置已存在，需后台定时任务配合
-4. **错误日志查看** — 当前 `waf_error.log` 需手动查看，可考虑加入管理面板
-5. **封锁 IP 持久化** — 当前 `waf_drop` 共享字典在 Nginx reload 后丢失，建议重启时从 `stop_ip.json` 恢复
-6. **规则变更热加载** — 当前规则文件在 init 时预加载，修改后需 `nginx -s reload`
+1. **UA whitelist/blacklist UI** — add `ua_white`/`ua_black` editors to the global config page
+2. **Cloud spider pool sync** — integrate a cloud API to auto-update the known spider list
+3. **Automatic log cleanup** — `log_save` config exists but needs a scheduled task
+4. **Error log viewer** — `waf_error.log` is currently inspected manually; consider adding to the admin panel
+5. **Persistent blocked IPs** — the `waf_drop` shared dict is lost on Nginx reload; restore from `stop_ip.json` at startup
+6. **Hot reload of rules** — rule files are loaded once at init; currently require `nginx -s reload` after edits
